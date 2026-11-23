@@ -116,6 +116,7 @@ input[type=number],select{font:inherit;color:var(--ink);background:var(--bg);bor
       <label><input type="checkbox" id="tGraph"> Show the graph</label>
       <label><input type="checkbox" id="tSign" checked> Sign chart</label>
       <label><input type="checkbox" id="tStops" checked> Stop at roots</label>
+      <label><input type="checkbox" id="tSound" checked> Sound</label>
     </div>
     <label class="slider" id="zoomWrap" hidden>Vertical stretch <input type="range" id="zoom" min="-3" max="4" step="0.25" value="0"><output id="zoomOut">×1</output></label>
   </div>
@@ -133,7 +134,7 @@ input[type=number],select{font:inherit;color:var(--ink);background:var(--bg);bor
     </div>
   </details>
 
-  <p class="hint">Watch a car flash when the engine crosses its root: that factor just changed sign. A squared factor never shows a minus, so the smoke keeps its sign there. Drag the train or tap the track to jump to any spot. With the track selected, the arrow keys nudge the train and the space bar starts or pauses it.</p>
+  <p class="hint">Watch a car flash when the engine crosses its root: that factor just changed sign. A squared factor never shows a minus, so the smoke keeps its sign there. The train comes in from the left and leaves on the right, because the domain is every real number. Drag the train or tap the track to jump to any spot. With the track selected, the arrow keys nudge the train and the space bar starts or pauses it.</p>
 </main>
 
 <script>
@@ -145,8 +146,8 @@ let model = JSON.parse(JSON.stringify(DEFAULT));
 let roots = [], mult = new Map(), xmin = -4, xmax = 7, intervals = [], interiorMax = 1, cars = [], carState = [];
 let W = 800, H = 360, L = {};
 let colors = {};
-const opts = {graph:false, sign:true, stops:true, speed:0.7, zoom:1};
-const st = {x:-4, playing:false, finished:false, maxX:-4, lastEmitX:-4, stopTimer:0, dragging:false, wheel:0, puffs:[], steam:[], flashes:[], steamT:0};
+const opts = {graph:false, sign:true, stops:true, speed:0.7, zoom:1, sound:true};
+const st = {x:-4, playing:false, finished:false, maxX:-4, lastEmitX:-4, stopTimer:0, dragging:false, wheel:0, puffs:[], steam:[], flashes:[], steamT:0, chug:0};
 const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 const EMIT_STEP = 0.22;
 
@@ -204,8 +205,8 @@ function rebuild(){
   for (const r of roots) cars.push({kind:'f', r, m:mult.get(r)});
   carState = cars.map(() => ({s:null, t:0}));
   renderFormula();
-  resetTrain();
   layout();
+  resetTrain();
 }
 
 function renderFormula(){
@@ -239,8 +240,8 @@ function layout(){
   const rear = 78 + cars.length*64;
   let s = clamp(W/1100, 0.42, 0.95);
   s = Math.max(0.36, Math.min(s, (W*0.55)/(rear + 50)));
-  const pad = Math.max(20, W*0.035);
-  const left = rear*s + 14;
+  const pad = 0;
+  const left = 0;
   const bandH = 24, bandY = H - bandH - 14;
   const plotTop = 14;
   let plotBottom, axisY;
@@ -260,8 +261,11 @@ const pxPerUnit = () => (W - L.pad - L.left)/(xmax - xmin);
 const yScale = () => (Math.min(L.axisY - L.plotTop, L.plotBottom - L.axisY)*0.88)/interiorMax*opts.zoom;
 
 /* ---------- train state ---------- */
+// The domain is all real x, so the train enters fully from off screen left and leaves fully off screen right.
+const XS = () => xmin - (50*L.s + 8)/pxPerUnit();
+const XE = () => xmax + ((80 + cars.length*64)*L.s + 12)/pxPerUnit();
 function resetTrain(){
-  st.x = xmin; st.maxX = xmin; st.lastEmitX = xmin; st.playing = false; st.finished = false;
+  st.x = XS(); st.maxX = st.x; st.lastEmitX = st.x; st.playing = false; st.finished = false; st.chug = 0;
   st.stopTimer = 0; st.puffs = []; st.steam = []; st.flashes = [];
   for (const c of carState){ c.s = null; c.t = 0; }
   syncPlay();
@@ -293,8 +297,41 @@ function steam(){
 }
 function syncPlay(){
   const b = $('play');
-  b.textContent = st.playing ? 'Pause' : st.finished ? 'Run again' : (st.x > xmin + 1e-6 ? 'Resume' : 'Start the train');
+  b.textContent = st.playing ? 'Pause' : st.finished ? 'Run again' : (st.x > XS() + 1e-6 ? 'Resume' : 'Start the train');
   b.setAttribute('aria-pressed', String(st.playing));
+}
+
+/* ---------- sound ---------- */
+let actx = null, noise = null;
+function audio(){
+  if (!opts.sound) return null;
+  try {
+    if (!actx){
+      actx = new (window.AudioContext || window.webkitAudioContext)();
+      noise = actx.createBuffer(1, Math.floor(actx.sampleRate*0.2), actx.sampleRate);
+      const d = noise.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random()*2 - 1;
+    }
+    if (actx.state === 'suspended') actx.resume();
+  } catch(_){ return null; }
+  return actx;
+}
+function chug(){
+  const a = opts.sound && actx && actx.state === 'running' ? actx : null; if (!a) return;
+  const t = a.currentTime, src = a.createBufferSource(), bp = a.createBiquadFilter(), g = a.createGain();
+  src.buffer = noise; bp.type = 'bandpass'; bp.frequency.value = 420; bp.Q.value = 0.9;
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22, t + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.11);
+  src.connect(bp).connect(g).connect(a.destination); src.start(t); src.stop(t + 0.13);
+}
+function bell(){
+  const a = opts.sound && actx && actx.state === 'running' ? actx : null; if (!a) return;
+  const t = a.currentTime;
+  for (const [fq, v] of [[988, 0.16], [1976, 0.05], [2962, 0.025]]){
+    const o = a.createOscillator(), g = a.createGain();
+    o.type = 'sine'; o.frequency.value = fq;
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1);
+    o.connect(g).connect(a.destination); o.start(t); o.stop(t + 1.15);
+  }
 }
 
 /* ---------- simulation ---------- */
@@ -305,13 +342,17 @@ function step(dt){
     } else {
       let nx = st.x + opts.speed*dt, stopped = null;
       if (opts.stops){
-        for (const r of roots){ if (r > st.x + 1e-9 && r <= nx && r < xmax){ nx = r; stopped = r; break; } }
+        for (const r of roots){ if (r > st.x + 1e-9 && r <= nx){ nx = r; stopped = r; break; } }
       }
-      if (nx >= xmax){ nx = xmax; st.playing = false; st.finished = true; syncPlay(); }
+      if (nx >= XE()){ nx = XE(); st.playing = false; st.finished = true; syncPlay(); }
+      const w0 = st.wheel;
       moveTo(nx);
+      st.chug += Math.abs(st.wheel - w0);
+      if (st.chug > Math.PI/2){ st.chug = 0; chug(); }
       if (stopped !== null){
         st.stopTimer = 1.3; st.lastEmitX = stopped; emit(0);
         st.flashes.push({r:stopped, t:0});
+        bell();
       }
       st.steamT += dt;
       if (st.steamT > 0.08){ st.steamT = 0; steam(); }
@@ -429,7 +470,7 @@ function drawTrack(){
   for (let i = Math.ceil(xFromPx(0)); i <= xmax; i++){
     const X = Math.round(px(i)) + 0.5;
     ctx.beginPath(); ctx.moveTo(X, y - 6); ctx.lineTo(X, y + 10); ctx.stroke();
-    if (i % every === 0 && !isRoot(i)) ctx.fillText(minus(i), X, y + 30);
+    if (i % every === 0 && !isRoot(i) && X > 12 && X < W - 22) ctx.fillText(minus(i), X, y + 30);
   }
   ctx.font = 'italic 700 15px ' + FONT; ctx.textAlign = 'right';
   ctx.fillText('x', W - 6, y - 8);
@@ -632,7 +673,7 @@ function dragTo(X){
   for (const r of roots) if (Math.abs(px(r) - X) < 9) x = r;
   moveTo(x);
   st.stopTimer = 0;
-  st.finished = x >= xmax - 1e-9;
+  st.finished = false;
   if (st.finished) st.playing = false;
   syncPlay();
 }
@@ -651,8 +692,8 @@ cv.addEventListener('keydown', e => {
   if (k === 'ArrowRight' || k === 'ArrowLeft'){
     e.preventDefault();
     const d = (e.shiftKey ? 1 : 0.1)*(k === 'ArrowRight' ? 1 : -1);
-    const x = clamp(Math.round((st.x + d)*100)/100, xmin, xmax);
-    moveTo(x); st.finished = x >= xmax; if (st.finished) st.playing = false; syncPlay();
+    const x = clamp(Math.round((st.x + d)*100)/100, XS(), XE());
+    moveTo(x); st.finished = x >= XE() - 1e-9; if (st.finished) st.playing = false; syncPlay();
   } else if (k === ' ' || k === 'Enter'){
     e.preventDefault(); togglePlay();
   } else if (k === 'Home'){
@@ -662,7 +703,7 @@ cv.addEventListener('keydown', e => {
 function togglePlay(){
   if (st.finished){ resetTrain(); st.playing = true; }
   else st.playing = !st.playing;
-  if (st.playing && st.x <= xmin + 1e-9) emit(sgnAt(st.x));
+  if (st.playing){ audio(); if (st.x <= XS() + 1e-9) emit(sgnAt(st.x)); }
   syncPlay();
 }
 $('play').addEventListener('click', togglePlay);
@@ -671,6 +712,7 @@ $('speed').addEventListener('input', e => { opts.speed = +e.target.value; $('spe
 $('tGraph').addEventListener('change', e => { opts.graph = e.target.checked; $('zoomWrap').hidden = !opts.graph; layout(); });
 $('tSign').addEventListener('change', e => { opts.sign = e.target.checked; layout(); });
 $('tStops').addEventListener('change', e => { opts.stops = e.target.checked; });
+$('tSound').addEventListener('change', e => { opts.sound = e.target.checked; if (opts.sound) audio(); });
 $('zoom').addEventListener('input', e => {
   opts.zoom = Math.pow(2, +e.target.value);
   $('zoomOut').textContent = '×' + (opts.zoom >= 1 ? Math.round(opts.zoom*100)/100 : (Math.round(opts.zoom*1000)/1000));
