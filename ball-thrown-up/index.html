@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ball Thrown Upward</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+/* VOICE: a clear classroom demonstration, calm and exact.
+   IDEA: graph paper in a physics lab notebook, with a ball launched off a ledge.
+   PICTURE: the live motion itself, large, on a gridded height axis; it unrolls into h vs t.
+   COLOUR and TYPE: white paper, ink black, faint blue grid, one hot red ball; Figtree throughout.
+   LAYOUT: modest title, big figure left, timer and controls in a side column; stacks on phones. */
+:root{color-scheme:light dark;
+  --bg:light-dark(#ffffff,#111417);--panel:light-dark(#f1f5f9,#1a1f24);--ink:light-dark(#12161a,#e8edf2);
+  --mute:light-dark(#566270,#9ba7b3);--grid:light-dark(#dde8f2,#222a32);--line:light-dark(#d3dbe3,#2b333b);
+  --ball:light-dark(#e2371f,#ff5a43);--cliff:light-dark(#c8d2dc,#2d363f);--accent:light-dark(#e2371f,#ff5a43)}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.55 Figtree,system-ui,sans-serif;overflow-x:clip}
+.band{padding:14px max(3vw,14px);max-width:1240px;margin:0 auto}
+h1{font-size:clamp(24px,3vw,32px);line-height:1.05;margin:0 0 4px;font-weight:800;text-wrap:balance}
+.lede{margin:0 0 10px;font-size:15px;color:var(--mute);max-width:68ch}
+.stage{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:16px;align-items:start}
+.figwrap{border:1px solid var(--line);border-radius:14px;padding:8px 8px 6px;background:var(--bg)}
+.fig{position:relative;height:clamp(340px,calc(100svh - 170px),760px)}
+.fig>canvas{position:absolute;inset:0;width:100%;height:100%}
+.scrub{display:flex;align-items:center;gap:10px;padding:4px 6px 0;font-size:14px;color:var(--mute)}
+.scrub input{flex:1;height:28px}
+aside{display:grid;gap:10px}
+.card{background:var(--panel);border-radius:12px;padding:12px 14px}
+.top{display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
+.timer{display:flex;align-items:baseline;gap:4px;font-variant-numeric:tabular-nums}
+.timer b{font-size:44px;line-height:1;font-weight:800}
+.timer span{font-size:18px;color:var(--mute)}
+.lbl{font-size:13px;color:var(--mute);margin:0 0 2px;display:block}
+.reads{display:grid;gap:4px;text-align:right}
+.reads div{font-variant-numeric:tabular-nums;white-space:nowrap;font-size:14px}
+.reads b{font-size:18px;font-weight:600}
+.status{margin-top:6px;font-size:14px;font-weight:600}
+.row{display:grid;grid-template-columns:1fr 78px;gap:4px 10px;align-items:center;margin-bottom:6px}
+.row label{font-size:14px;font-weight:600}
+.row input[type=range]{grid-column:1/-1}
+input[type=range]{width:100%;height:24px;margin:0;accent-color:var(--accent)}
+input[type=number]{width:100%;font:16px Figtree,system-ui,sans-serif;padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);text-align:right}
+.btns{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:4px}
+button{font:600 16px Figtree,system-ui,sans-serif;min-height:42px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+button.go{background:var(--accent);border-color:var(--accent);color:#fff}
+button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px}
+.seg button{min-height:36px;font-size:15px}
+.seg button[aria-pressed=true]{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.sw{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:38px;cursor:pointer;font-weight:600;font-size:15px}
+.sw input{appearance:none;width:46px;height:26px;border-radius:13px;background:var(--line);position:relative;cursor:pointer;flex:none;margin:0;transition:background .2s}
+.sw input::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0004;transition:transform .2s}
+.sw input:checked{background:var(--accent)}.sw input:checked::after{transform:translateX(20px)}
+.eq{font-size:18px;font-weight:600;margin:0 0 4px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow-x:auto}
+.keys{margin:6px 0 0;padding:0;list-style:none;display:grid;gap:2px;font-size:14px;font-variant-numeric:tabular-nums}
+.keys li{display:flex;justify-content:space-between;gap:8px}.keys li b{white-space:nowrap}
+.probe{position:absolute;visibility:hidden}
+@media(max-width:820px){.stage{grid-template-columns:minmax(0,1fr)}.fig{height:clamp(340px,58vh,520px)}}
+@media(prefers-reduced-motion:reduce){.sw input,.sw input::after{transition:none}}
+</style>
+</head>
+<body>
+<main class="band">
+  <h1>Ball thrown straight up</h1>
+  <p class="lede">Set the launch speed and height, then throw. Switch on the graph to spread the same motion out over time and watch the parabola appear. A negative initial height puts you at the bottom of a well, throwing up to a friend at ground level. Space bar throws or pauses.</p>
+
+  <div class="stage">
+    <div class="figwrap">
+      <div class="fig" id="fig"><canvas id="cv" aria-label="Animation of the ball's height"></canvas></div>
+      <div class="scrub"><label for="scrub">Scrub</label><input type="range" id="scrub" min="0" max="1000" value="0"></div>
+    </div>
+
+    <aside>
+      <div class="card">
+        <div class="top">
+          <div><p class="lbl">Time since thrown</p><div class="timer"><b id="time">0.00</b><span>s</span></div></div>
+          <div class="reads">
+            <div><span class="lbl">Height (h)</span><b id="hNow">0.00</b> m</div>
+          </div>
+        </div>
+        <div class="status" id="status">Ready to throw</div>
+      </div>
+
+      <div class="card">
+        <p class="eq" id="eq"></p>
+        <label class="sw">Graph height vs time<input type="checkbox" id="graph" role="switch"></label>
+        <label class="sw">Show key values<input type="checkbox" id="keys" role="switch"></label>
+        <ul class="keys" id="keyList" hidden></ul>
+      </div>
+
+      <div class="card">
+        <div class="row">
+          <label for="v0n">Initial speed (v₀), m/s</label>
+          <input type="number" id="v0n" min="0" max="100" step="0.5" value="15">
+          <input type="range" id="v0r" min="0" max="40" step="0.5" value="15" aria-label="Initial speed slider">
+        </div>
+        <div class="row">
+          <label for="h0n">Initial height (h₀), m</label>
+          <input type="number" id="h0n" min="-200" max="200" step="0.5" value="10">
+          <input type="range" id="h0r" min="-30" max="50" step="0.5" value="10" aria-label="Initial height slider">
+        </div>
+        <div class="row">
+          <label for="gn">Gravity (g), m/s²</label>
+          <input type="number" id="gn" min="0.5" max="30" step="0.01" value="9.8">
+        </div>
+        <div class="btns">
+          <button class="go" id="play">Throw</button>
+          <button id="reset">Reset</button>
+        </div>
+        <div class="seg" role="group" aria-label="Playback speed">
+          <button data-r="0.25" aria-pressed="false">¼×</button>
+          <button data-r="0.5" aria-pressed="false">½×</button>
+          <button data-r="1" aria-pressed="true">1×</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+</main>
+
+<span class="probe" id="c-ink" style="color:var(--ink)"></span><span class="probe" id="c-mute" style="color:var(--mute)"></span>
+<span class="probe" id="c-grid" style="color:var(--grid)"></span><span class="probe" id="c-ball" style="color:var(--ball)"></span>
+<span class="probe" id="c-cliff" style="color:var(--cliff)"></span><span class="probe" id="c-bg" style="color:var(--bg)"></span>
+
+<script>
+{
+const $ = id => document.getElementById(id);
+const cv = $('cv'), ctx = cv.getContext('2d'), fig = $('fig');
+const S = {v0: 15, h0: 10, g: 9.8, t: 0, playing: false, rate: 1, graph: false, keys: false};
+
+const h = t => S.h0 + S.v0 * t - 0.5 * S.g * t * t;
+const slope = t => S.v0 - S.g * t;
+function derived() {
+  const tp = S.v0 / S.g, hmax = S.h0 + S.v0 ** 2 / (2 * S.g);
+  const disc = S.v0 ** 2 + 2 * S.g * S.h0;          // b² − 4ac with a = −g/2, b = v0, c = h0
+  const roots = disc < 0 ? [] : [(S.v0 - Math.sqrt(disc)) / S.g, (S.v0 + Math.sqrt(disc)) / S.g];
+  // the ball stops on the ground, or back at the bottom of the well
+  const tStop = S.h0 >= 0 ? roots[1] : 2 * S.v0 / S.g;
+  return {tp, hmax, disc, roots, tStop};
+}
+function niceStep(range, n) {
+  const raw = range / n, p = 10 ** Math.floor(Math.log10(raw)), m = raw / p;
+  return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p;
+}
+const fmt = x => { const v = Math.round(x * 100) / 100; return (v < 0 ? '−' : '') + Math.abs(v); };
+const f2 = x => (x < -0.005 ? '−' : '') + Math.abs(x).toFixed(2);
+const col = n => getComputedStyle($('c-' + n)).color;
+
+function draw() {
+  const W = fig.clientWidth, H = fig.clientHeight, dpr = window.devicePixelRatio || 1;
+  if (cv.width !== Math.round(W * dpr) || cv.height !== Math.round(H * dpr)) {
+    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  const C = {ink: col('ink'), mute: col('mute'), grid: col('grid'), ball: col('ball'), cliff: col('cliff'), bg: col('bg')};
+  const d = derived(), narrow = W < 520, G = S.graph;
+  const L = narrow ? 50 : 64, R = narrow ? 10 : 18, T = 16, B = narrow ? 46 : 54;
+  const pw = W - L - R, ph = H - T - B;
+  // vertical range covers the peak, ground level and the bottom of any well
+  const top0 = Math.max(d.hmax, 1), bot0 = Math.min(S.h0, 0);
+  const hs = niceStep(top0 - bot0, narrow ? 5 : 8);
+  const hTop = Math.ceil((top0 + 0.06 * (top0 - bot0)) / hs) * hs;
+  const hLo = Math.floor((bot0 - Math.max(0.1 * (top0 - bot0), 0.5)) / hs) * hs;
+  const y = hh => T + ph * (hTop - hh) / (hTop - hLo);
+  // time range covers the throw and every real root
+  const tA = Math.min(0, ...d.roots), tB = Math.max(d.tStop, ...d.roots, 0.5);
+  const span = tB - tA, tLo = tA - 0.1 * span, tHi = tB + 0.1 * span;
+  const ts = niceStep(tHi - tLo, narrow ? 5 : 9);
+  const xT = t => L + pw * (t - tLo) / (tHi - tLo);
+  const x0 = xT(0), r = narrow ? 8 : 10;
+
+  ctx.font = '13px Figtree, system-ui, sans-serif';
+  ctx.lineWidth = 1;
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  for (let k = Math.ceil(hLo / hs - 1e-9); k * hs <= hTop + 1e-9; k++) {
+    const yy = Math.round(y(k * hs)) + .5;
+    ctx.strokeStyle = C.grid; ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(L + pw, yy); ctx.stroke();
+    ctx.fillStyle = C.mute; ctx.fillText(fmt(k * hs), L - 8, yy);
+  }
+  ctx.save(); ctx.translate(12, T + ph / 2); ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = C.mute;
+  ctx.fillText('Height, h (m)', 0, 0); ctx.restore();
+  if (G) {
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (let k = Math.ceil(tLo / ts - 1e-9); k * ts <= tHi + 1e-9; k++) {
+      const xx = Math.round(xT(k * ts)) + .5;
+      ctx.strokeStyle = C.grid; ctx.beginPath(); ctx.moveTo(xx, T); ctx.lineTo(xx, T + ph); ctx.stroke();
+      ctx.fillStyle = C.mute; ctx.fillText(fmt(k * ts), xx, T + ph + 6);
+    }
+    ctx.fillText('Time since thrown, t (s)', L + pw / 2, T + ph + (narrow ? 24 : 28));
+  }
+
+  // scene: ground, ledge or well, friend. Same place in both views.
+  const shaftL = x0 - r - 8, shaftR = x0 + r + 8;
+  ctx.fillStyle = C.cliff; ctx.globalAlpha = G ? 0.3 : 0.55;
+  if (S.h0 < 0) {
+    ctx.fillRect(L, y(0), shaftL - L, T + ph - y(0));
+    ctx.fillRect(shaftR, y(0), L + pw - shaftR, T + ph - y(0));
+    ctx.fillRect(shaftL, y(S.h0) + r, shaftR - shaftL, T + ph - y(S.h0) - r);
+  } else ctx.fillRect(L, y(0), pw, T + ph - y(0));
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5;
+  if (S.h0 < 0) { // well walls and floor
+    ctx.beginPath(); ctx.moveTo(shaftL, y(0)); ctx.lineTo(shaftL, y(S.h0) + r); ctx.lineTo(shaftR, y(S.h0) + r); ctx.lineTo(shaftR, y(0)); ctx.stroke();
+    // friend waiting at the top
+    const fx = shaftR + 26, fy = y(0), s = narrow ? 0.8 : 1;
+    ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.beginPath();
+    ctx.moveTo(fx - 8 * s, fy); ctx.lineTo(fx, fy - 18 * s); ctx.lineTo(fx + 8 * s, fy);
+    ctx.moveTo(fx, fy - 18 * s); ctx.lineTo(fx, fy - 38 * s);
+    ctx.moveTo(fx, fy - 32 * s); ctx.lineTo(fx - 12 * s, fy - 44 * s);
+    ctx.moveTo(fx, fy - 32 * s); ctx.lineTo(fx + 12 * s, fy - 44 * s);
+    ctx.stroke(); ctx.beginPath(); ctx.arc(fx, fy - 46 * s, 7 * s, 0, 7); ctx.stroke(); ctx.lineCap = 'butt';
+    ctx.fillStyle = C.mute; ctx.font = '13px Figtree, system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+    ctx.fillText('friend', fx + 14 * s, fy - 46 * s);
+  } else if (S.h0 > 0) { // ledge
+    const pr = x0 - r - 4, pwid = 22;
+    ctx.fillStyle = C.cliff; ctx.fillRect(pr - pwid, y(S.h0), pwid, y(0) - y(S.h0));
+    ctx.strokeRect(pr - pwid, y(S.h0), pwid, y(0) - y(S.h0));
+  }
+
+  // axes
+  const axisX = G ? x0 : L;
+  ctx.strokeStyle = C.ink; ctx.lineWidth = 2; ctx.beginPath();
+  ctx.moveTo(L, y(0)); ctx.lineTo(L + pw, y(0));
+  ctx.moveTo(axisX, T); ctx.lineTo(axisX, T + ph); ctx.stroke();
+
+  const tNow = S.t, hNow = h(tNow);
+  let bx = x0;
+  if (!G) {
+    ctx.fillStyle = C.ball; ctx.globalAlpha = 0.22;
+    for (let k = 0; k * 0.25 < tNow - 1e-6; k++) { ctx.beginPath(); ctx.arc(x0, y(h(k * 0.25)), r * 0.7, 0, 7); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  } else {
+    ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+    // the past: same equation for t < 0, dashed
+    ctx.strokeStyle = C.mute; ctx.setLineDash([5, 5]); ctx.lineWidth = 1.5; ctx.beginPath();
+    for (let i = 0; i <= 150; i++) { const t = tLo * (1 - i / 150); i ? ctx.lineTo(xT(t), y(h(t))) : ctx.moveTo(xT(t), y(h(t))); }
+    ctx.stroke(); ctx.setLineDash([]);
+    // the throw so far
+    ctx.strokeStyle = C.ball; ctx.lineWidth = 3; ctx.lineJoin = 'round'; ctx.beginPath();
+    const n = Math.max(2, Math.ceil(200 * tNow / Math.max(d.tStop, 1e-6)));
+    for (let i = 0; i <= n; i++) { const t = tNow * i / n; i ? ctx.lineTo(xT(t), y(h(t))) : ctx.moveTo(xT(t), y(h(t))); }
+    ctx.stroke(); ctx.restore();
+    // roots
+    ctx.font = '600 13px Figtree, system-ui, sans-serif'; ctx.textBaseline = 'bottom';
+    const rts = d.roots.filter((rt, i) => !(i === 1 && Math.abs(rt - d.roots[0]) < 1e-9));
+    rts.forEach((rt, i) => {
+      ctx.fillStyle = C.bg; ctx.strokeStyle = C.ink; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(xT(rt), y(0), 5, 0, 7); ctx.fill(); ctx.stroke();
+      const left = rts.length > 1 && i === 0;
+      ctx.fillStyle = C.ink; ctx.textAlign = left ? 'right' : 'left';
+      ctx.fillText('t = ' + f2(rt) + ' s', xT(rt) + (left ? -8 : 8), y(0) - 6);
+    });
+    if (!rts.length) {
+      ctx.fillStyle = C.ink; ctx.textAlign = 'left';
+      ctx.fillText('No real roots: the ball never reaches h = 0', L + 10, y(0) - 8);
+    }
+    ctx.font = '13px Figtree, system-ui, sans-serif';
+    bx = xT(tNow);
+  }
+
+  if (S.keys) {
+    ctx.strokeStyle = C.mute; ctx.lineWidth = 1; ctx.setLineDash([6, 5]);
+    ctx.beginPath(); ctx.moveTo(L, y(d.hmax)); ctx.lineTo(L + pw, y(d.hmax)); ctx.stroke();
+    if (G) { ctx.beginPath(); ctx.moveTo(xT(d.tp), y(d.hmax)); ctx.lineTo(xT(d.tp), y(0)); ctx.stroke(); }
+    ctx.setLineDash([]);
+    ctx.fillStyle = C.mute; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+    ctx.fillText('max height ' + f2(d.hmax) + ' m', L + pw - 4, y(d.hmax) - 4);
+  }
+
+  const by = y(hNow);
+  if (Math.abs(bx - axisX) > r + 2) {
+    ctx.strokeStyle = C.ball; ctx.globalAlpha = 0.6; ctx.lineWidth = 1.5; ctx.setLineDash([3, 4]);
+    ctx.beginPath(); ctx.moveTo(axisX, by); ctx.lineTo(bx - r, by); ctx.stroke();
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+  }
+  ctx.fillStyle = C.ball; ctx.beginPath(); ctx.moveTo(axisX, by - 5); ctx.lineTo(axisX + 7, by); ctx.lineTo(axisX, by + 5); ctx.fill();
+  const gr = ctx.createRadialGradient(bx - r * 0.35, by - r * 0.4, r * 0.1, bx, by, r);
+  gr.addColorStop(0, '#ffd3c9'); gr.addColorStop(0.35, C.ball); gr.addColorStop(1, '#8e1a0c');
+  ctx.fillStyle = gr; ctx.beginPath(); ctx.arc(bx, by, r, 0, 7); ctx.fill();
+}
+
+function panel() {
+  const d = derived(), done = S.t >= d.tStop - 1e-9 && S.t > 0;
+  $('time').textContent = S.t.toFixed(2);
+  $('hNow').textContent = f2(h(S.t));
+  let st = 'Ready to throw';
+  if (done) st = (S.h0 >= 0 ? 'Landed at t = ' : 'Back at the bottom at t = ') + d.tStop.toFixed(2) + ' s';
+  else if (S.t > 0) st = Math.abs(slope(S.t)) < 0.05 ? 'At the top' : slope(S.t) > 0 ? 'Rising' : 'Falling';
+  $('status').textContent = st + (S.t > 0 && !S.playing && !done ? ' (paused)' : '');
+  $('play').textContent = S.playing ? 'Pause' : done ? 'Throw again' : S.t > 0 ? 'Resume' : 'Throw';
+  $('scrub').value = d.tStop > 0 ? Math.round(S.t / d.tStop * 1000) : 0;
+  const a = S.g / 2;
+  $('eq').textContent = 'h(t) = −' + fmt(a) + 't² ' + (S.v0 ? '+ ' + fmt(S.v0) + 't ' : '') +
+    (S.h0 > 0 ? '+ ' + fmt(S.h0) : S.h0 < 0 ? '− ' + fmt(-S.h0) : '');
+  $('keyList').hidden = !S.keys;
+  if (S.keys) $('keyList').innerHTML = [
+    ['Vertex (t, h)', '(' + f2(d.tp) + ', ' + f2(d.hmax) + ')'],
+    ['Roots (h = 0)', d.roots.length ? d.roots.map(f2).filter((v, i, A) => A.indexOf(v) === i).join(' s, ') + ' s' : 'none, never reaches h = 0'],
+  ].map(([k, v]) => `<li><span>${k}</span><b>${v}</b></li>`).join('');
+}
+function render() { draw(); panel(); }
+
+let last = null;
+function frame(ts) {
+  if (!S.playing) { last = null; return; }
+  if (last !== null) S.t += (ts - last) / 1000 * S.rate;
+  last = ts;
+  const end = derived().tStop;
+  if (S.t >= end) { S.t = end; S.playing = false; last = null; }
+  render();
+  if (S.playing) requestAnimationFrame(frame);
+}
+function togglePlay() {
+  const end = derived().tStop;
+  if (S.playing) { S.playing = false; render(); return; }
+  if (!(end > 0)) return;
+  if (S.t >= end) S.t = 0;
+  S.playing = true; last = null; panel(); requestAnimationFrame(frame);
+}
+function resetSim() { S.playing = false; S.t = 0; render(); }
+
+function link(rangeId, numId, key, min, max) {
+  const set = (val, from) => {
+    let x = parseFloat(val); if (!isFinite(x)) return;
+    x = Math.min(Math.max(x, min), max);
+    S[key] = x;
+    if (from !== 'r') $(rangeId).value = x;
+    if (from !== 'n') $(numId).value = x;
+    resetSim();
+  };
+  $(rangeId).addEventListener('input', e => set(e.target.value, 'r'));
+  $(numId).addEventListener('change', e => set(e.target.value, 'x'));
+}
+link('v0r', 'v0n', 'v0', 0, 100);
+link('h0r', 'h0n', 'h0', -200, 200);
+$('gn').addEventListener('change', e => {
+  let x = parseFloat(e.target.value); if (!isFinite(x) || x <= 0) x = 9.8;
+  S.g = Math.min(Math.max(x, 0.5), 30); e.target.value = S.g; resetSim();
+});
+$('play').addEventListener('click', togglePlay);
+$('reset').addEventListener('click', resetSim);
+$('scrub').addEventListener('input', e => { S.playing = false; S.t = (derived().tStop || 0) * e.target.value / 1000; render(); });
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+  S.rate = parseFloat(b.dataset.r);
+  document.querySelectorAll('.seg button').forEach(o => o.setAttribute('aria-pressed', o === b));
+}));
+$('graph').addEventListener('change', e => { S.graph = e.target.checked; render(); });
+$('keys').addEventListener('change', e => { S.keys = e.target.checked; render(); });
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && !/INPUT|BUTTON/.test(document.activeElement.tagName)) { e.preventDefault(); togglePlay(); }
+});
+const ro = new ResizeObserver(() => draw()); ro.observe(fig);
+const mo = new MutationObserver(() => draw()); mo.observe(document.documentElement, {attributes: true});
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => draw());
+if (document.fonts) document.fonts.ready.then(() => draw());
+render();
+}
+</script>
+</body>
+</html>
