@@ -88,6 +88,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
       <div class="card">
         <p class="eq" id="eq"></p>
         <label class="sw">Graph height vs time<input type="checkbox" id="graph" role="switch"></label>
+        <label class="sw">Show ball every 0.25 s<input type="checkbox" id="strobe" role="switch" checked></label>
         <label class="sw">Show key values<input type="checkbox" id="keys" role="switch"></label>
         <ul class="keys" id="keyList" hidden></ul>
       </div>
@@ -129,7 +130,7 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--accent);outline
 {
 const $ = id => document.getElementById(id);
 const cv = $('cv'), ctx = cv.getContext('2d'), fig = $('fig');
-const S = {v0: 15, h0: 10, g: 9.8, t: 0, playing: false, rate: 1, graph: false, keys: false};
+const S = {v0: 15, h0: 10, g: 9.8, t: 0, playing: false, rate: 1, graph: false, keys: false, strobe: true};
 
 const h = t => S.h0 + S.v0 * t - 0.5 * S.g * t * t;
 const slope = t => S.v0 - S.g * t;
@@ -230,10 +231,14 @@ function draw() {
 
   const tNow = S.t, hNow = h(tNow);
   let bx = x0;
-  if (!G) {
-    ctx.fillStyle = C.ball; ctx.globalAlpha = 0.22;
-    for (let k = 0; k * 0.25 < tNow - 1e-6; k++) { ctx.beginPath(); ctx.arc(x0, y(h(k * 0.25)), r * 0.7, 0, 7); ctx.fill(); }
+  const strobe = px => {
+    if (!S.strobe) return;
+    ctx.fillStyle = C.ball; ctx.globalAlpha = 0.25;
+    for (let k = 0; k * 0.25 < tNow - 1e-6; k++) { ctx.beginPath(); ctx.arc(px(k * 0.25), y(h(k * 0.25)), r * 0.7, 0, 7); ctx.fill(); }
     ctx.globalAlpha = 1;
+  };
+  if (!G) {
+    strobe(() => x0);
   } else {
     ctx.save(); ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
     // the past: same equation for t < 0, dashed
@@ -245,6 +250,7 @@ function draw() {
     const n = Math.max(2, Math.ceil(200 * tNow / Math.max(d.tStop, 1e-6)));
     for (let i = 0; i <= n; i++) { const t = tNow * i / n; i ? ctx.lineTo(xT(t), y(h(t))) : ctx.moveTo(xT(t), y(h(t))); }
     ctx.stroke(); ctx.restore();
+    strobe(xT);
     // roots
     ctx.font = '600 13px Figtree, system-ui, sans-serif'; ctx.textBaseline = 'bottom';
     const rts = d.roots.filter((rt, i) => !(i === 1 && Math.abs(rt - d.roots[0]) < 1e-9));
@@ -350,6 +356,7 @@ document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click'
   document.querySelectorAll('.seg button').forEach(o => o.setAttribute('aria-pressed', o === b));
 }));
 $('graph').addEventListener('change', e => { S.graph = e.target.checked; render(); });
+$('strobe').addEventListener('change', e => { S.strobe = e.target.checked; render(); });
 $('keys').addEventListener('change', e => { S.keys = e.target.checked; render(); });
 document.addEventListener('keydown', e => {
   if (e.code === 'Space' && !/INPUT|BUTTON/.test(document.activeElement.tagName)) { e.preventDefault(); togglePlay(); }
