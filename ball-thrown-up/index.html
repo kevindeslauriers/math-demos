@@ -195,6 +195,24 @@ function draw() {
     ctx.fillText('Time since thrown, t (s)', L + pw / 2, T + ph + (narrow ? 24 : 28));
   }
 
+  const fs = narrow ? 0.8 : 1;
+  function friend(fx, label, labelAbove) {
+    const fy = y(0), s = fs;
+    ctx.strokeStyle = C.ink; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.beginPath();
+    ctx.moveTo(fx - 8 * s, fy); ctx.lineTo(fx, fy - 18 * s); ctx.lineTo(fx + 8 * s, fy);
+    ctx.moveTo(fx, fy - 18 * s); ctx.lineTo(fx, fy - 38 * s);
+    ctx.moveTo(fx, fy - 32 * s); ctx.lineTo(fx - 12 * s, fy - 44 * s);
+    ctx.moveTo(fx, fy - 32 * s); ctx.lineTo(fx + 12 * s, fy - 44 * s);
+    ctx.stroke(); ctx.beginPath(); ctx.arc(fx, fy - 46 * s, 7 * s, 0, 7); ctx.stroke(); ctx.lineCap = 'butt';
+    if (labelAbove) {
+      ctx.fillStyle = C.ink; ctx.font = '600 13px Figtree, system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(label, fx, fy - 58 * s);
+    } else {
+      ctx.fillStyle = C.mute; ctx.font = '13px Figtree, system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+      ctx.fillText(label, fx + 14 * s, fy - 46 * s);
+    }
+    ctx.font = '13px Figtree, system-ui, sans-serif';
+  }
   // scene: ground, ledge or well, friend. Same place in both views.
   const shaftL = x0 - r - 8, shaftR = x0 + r + 8;
   ctx.fillStyle = C.cliff; ctx.globalAlpha = G ? 0.3 : 0.55;
@@ -207,16 +225,7 @@ function draw() {
   ctx.strokeStyle = C.ink; ctx.lineWidth = 1.5;
   if (S.h0 < 0) { // well walls and floor
     ctx.beginPath(); ctx.moveTo(shaftL, y(0)); ctx.lineTo(shaftL, y(S.h0) + r); ctx.lineTo(shaftR, y(S.h0) + r); ctx.lineTo(shaftR, y(0)); ctx.stroke();
-    // friend waiting at the top
-    const fx = shaftR + 26, fy = y(0), s = narrow ? 0.8 : 1;
-    ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.beginPath();
-    ctx.moveTo(fx - 8 * s, fy); ctx.lineTo(fx, fy - 18 * s); ctx.lineTo(fx + 8 * s, fy);
-    ctx.moveTo(fx, fy - 18 * s); ctx.lineTo(fx, fy - 38 * s);
-    ctx.moveTo(fx, fy - 32 * s); ctx.lineTo(fx - 12 * s, fy - 44 * s);
-    ctx.moveTo(fx, fy - 32 * s); ctx.lineTo(fx + 12 * s, fy - 44 * s);
-    ctx.stroke(); ctx.beginPath(); ctx.arc(fx, fy - 46 * s, 7 * s, 0, 7); ctx.stroke(); ctx.lineCap = 'butt';
-    ctx.fillStyle = C.mute; ctx.font = '13px Figtree, system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    ctx.fillText('friend', fx + 14 * s, fy - 46 * s);
+    if (!G) friend(shaftR + 26, 'friend');
   } else if (S.h0 > 0) { // ledge
     const pr = x0 - r - 4, pwid = 22;
     ctx.fillStyle = C.cliff; ctx.fillRect(pr - pwid, y(S.h0), pwid, y(0) - y(S.h0));
@@ -255,8 +264,11 @@ function draw() {
     ctx.font = '600 13px Figtree, system-ui, sans-serif'; ctx.textBaseline = 'bottom';
     const rts = d.roots.filter((rt, i) => !(i === 1 && Math.abs(rt - d.roots[0]) < 1e-9));
     rts.forEach((rt, i) => {
+      if (S.h0 < 0) { friend(xT(rt), 'catch at t = ' + f2(rt) + ' s', true); }
       ctx.fillStyle = C.bg; ctx.strokeStyle = C.ink; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.arc(xT(rt), y(0), 5, 0, 7); ctx.fill(); ctx.stroke();
+      if (S.h0 < 0) return;
+      ctx.font = '600 13px Figtree, system-ui, sans-serif'; ctx.textBaseline = 'bottom';
       const left = rts.length > 1 && i === 0;
       ctx.fillStyle = C.ink; ctx.textAlign = left ? 'right' : 'left';
       ctx.fillText('t = ' + f2(rt) + ' s', xT(rt) + (left ? -8 : 8), y(0) - 6);
